@@ -58,75 +58,89 @@ class QdrantDBProvider(VectorDBInterface):
         return False
     
     def insert_one(self, collection_name: str, text: str, vector: list,
-                         metadata: dict = None, 
-                         record_id: str = None):
+                        metadata: dict = None, 
+                        record_id: str = None):
         
         if not self.is_collection_existed(collection_name):
-            self.logger.error(f"Can not insert new record to non-existed collection: {collection_name}")
+            self.logger.error(f"Cannot insert to non-existent collection: {collection_name}")
             return False
         
+        if record_id is None:
+            # Generate a simple integer ID (in production, use uuid)
+            record_id = 0  # You'll need to track this properly
+        
         try:
-            _ = self.client.upload_records(
+            self.client.upsert(
                 collection_name=collection_name,
-                records=[
-                    models.Record(
+                points=[
+                    models.PointStruct(
+                        id=record_id,
                         vector=vector,
                         payload={
-                            "text": text, "metadata": metadata
+                            "text": text, 
+                            "metadata": metadata or {}
                         }
                     )
                 ]
             )
+            return True
         except Exception as e:
-            self.logger.error(f"Error while inserting batch: {e}")
+            self.logger.error(f"Error while inserting: {e}")
             return False
-
-        return True
     
     def insert_many(self, collection_name: str, texts: list, 
-                          vectors: list, metadata: list = None, 
-                          record_ids: list = None, batch_size: int = 50):
+                        vectors: list, metadata: list = None, 
+                        record_ids: list = None, batch_size: int = 50):
         
         if metadata is None:
             metadata = [None] * len(texts)
 
         if record_ids is None:
-            record_ids = [None] * len(texts)
-
-        for i in range(0, len(texts), batch_size):
-            batch_end = i + batch_size
-
-            batch_texts = texts[i:batch_end]
-            batch_vectors = vectors[i:batch_end]
-            batch_metadata = metadata[i:batch_end]
-
-            batch_records = [
-                models.Record(
-                    vector=batch_vectors[x],
-                    payload={
-                        "text": batch_texts[x], "metadata": batch_metadata[x]
-                    }
+            record_ids = list(range(len(texts)))
+        
+        for start_idx in range(0, len(texts), batch_size):
+            end_idx = min(start_idx + batch_size, len(texts))
+            
+            points = []
+            for idx in range(start_idx, end_idx):
+                points.append(
+                    models.PointStruct(
+                        id=record_ids[idx],
+                        vector=vectors[idx],
+                        payload={
+                            "text": texts[idx], 
+                            "metadata": metadata[idx]
+                        }
+                    )
                 )
-
-                for x in range(len(batch_texts))
-            ]
-
+            
             try:
-                _ = self.client.upload_records(
+                self.client.upsert(
                     collection_name=collection_name,
-                    records=batch_records,
+                    points=points
                 )
             except Exception as e:
-                self.logger.error(f"Error while inserting batch: {e}")
+                self.logger.error(f"Error inserting batch: {e}")
                 return False
-
+        
         return True
         
     def search_by_vector(self, collection_name: str, vector: list, limit: int = 5):
-
-        return self.client.search(
-            collection_name=collection_name,
-            query_vector=vector,
-            limit=limit
-        )
-
+        if not self.client:
+            return None
+        
+        if not self.is_collection_existed(collection_name):
+            return None
+        
+        try:
+            response = self.client.query_points(
+                collection_name=collection_name,
+                query=vector,
+                limit=limit,
+                with_payload=True
+            )
+            return response.points
+            
+        except Exception as e:
+            self.logger.error(f"Error searching vectors: {e}")
+            return None
