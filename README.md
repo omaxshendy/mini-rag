@@ -5,8 +5,18 @@
 pip install -r requirements.txt
 ```
 
-### command to run uvicorn
+## Running code
+### you run from `src` directory
+```
+cd src
+```
 
+### commands to set env
+```
+conda env list
+conda activate miniragENV
+```
+### command to run uvicorn
 ``` 
 uvicorn main:app --reload --host 0.0.0.0 --port 5000
 ```
@@ -20,8 +30,3 @@ cd docker
 sudo docker compose up -d
 ```
 
-### commands to set env
-```
-conda env list
-conda activate miniragENV
-```

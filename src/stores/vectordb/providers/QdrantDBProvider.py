@@ -3,6 +3,7 @@ from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import DistanceMethodEnums
 import logging
 from typing import List
+from models.db_schemas import RetrievedDocument
 
 class QdrantDBProvider(VectorDBInterface):
 
@@ -133,13 +134,19 @@ class QdrantDBProvider(VectorDBInterface):
             return None
         
         try:
-            response = self.client.query_points(
+            results = self.client.query_points(
                 collection_name=collection_name,
                 query=vector,
                 limit=limit,
                 with_payload=True
             )
-            return response.points
+            return [
+                RetrievedDocument(**{
+                    "score": result.score,
+                    "text": result.payload["text"],
+                })
+                for result in results.points
+            ]
             
         except Exception as e:
             self.logger.error(f"Error searching vectors: {e}")
