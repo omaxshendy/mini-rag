@@ -20,6 +20,10 @@ conda activate miniragENV
 ``` 
 uvicorn main:app --reload --host 0.0.0.0 --port 5000
 ```
+
+Error: ERROR:    Error loading ASGI app. Could not import module "main".
+- Happens when you don't cd src (as `main` is inside the `src` directory) and if you're not in that directory it wont be able to read it
+
 ### command to run docker in the background
 Make sure to change directory to the docker folder
 ```
